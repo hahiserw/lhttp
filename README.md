@@ -1,4 +1,6 @@
-lhttp
-=====
+lhttpd
+======
 
-Lightweigh http server
+Praca na zaliczenie
+
+Serwer http działający w trybie demona.
