@@ -34,6 +34,9 @@ int leon = 0;
 int server; // Deskryptor pliku dla gniazda
 /*__thread*/ int client;
 
+char *address = "0.0.0.0";
+char port[10] = "8080";
+
 
 
 /* Mejn **********************************************************************/
@@ -64,7 +67,7 @@ int main(int argc, char *argv[])
 	// Utworzenie soketu
 	log_message(DEBUG1, "Opening socket");
 	// TODO WARN/NOTICE jeżeli port < 1024
-	create_server("localhost", "8080");
+	create_server(address, port);
 
 	// Czekamy w nieskończoność na zapytania
 	accept_connections();
@@ -160,15 +163,22 @@ void parse_args(int argc, char *argv[])
 			usage();
 		}
 	}
+
+	if (optind < argc) {
+		address = (char *)malloc(strlen(argv[optind]) + 1);
+		sscanf(argv[optind], "%[^:]:%s", address, port);
+	}
 }
 
 void usage()
 {
-	fprintf(stderr, "Usage: %s [-h] [-v] [-f] [-d working_directory]\n", program_name);
+	fprintf(stderr, "Usage: %s [-h] [-v] [-f] [-d working_directory] [ip[:port]]\n", program_name);
 	fprintf(stderr, "  -h  Display this helpful text\n");
 	fprintf(stderr, "  -v  Verbosity level, more `v', more verbose\n");
 	fprintf(stderr, "  -f  Stay in foreground (don't demonize)\n");
 	fprintf(stderr, "  -d  Root directory for http files (. default)\n");
+	fprintf(stderr, "  If no IP is specified 0.0.0.0 is used\n");
+	fprintf(stderr, "  Default port is 80\n");
 	exit(EXIT_FAILURE);
 }
 

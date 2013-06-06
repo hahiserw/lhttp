@@ -32,22 +32,33 @@ char response_body[] =
 		"</body>\r\n"
 		"</html>\r\n";
 
-// Tak bezczelnie podzielone, by nie robić tablicy 5 na 20 (przez response4xx)
+
+// Tak bezczelnie podzielone, by nie robić tablicy 5 na 17 (przez response4xx)
 
 char *response1xx[] = {
-	"Continue"
+	"Continue",
+	"Switching Protocols"
 };
 
 char *response2xx[] = {
-	"OK"
+	"OK",
+	"Created",
+	"Accepted",
+	"Non-Authoritative Information",
+	"No Content",
+	"Reset Content",
+	"Partial Content"
 };
 
 char *response3xx[] = {
+	"Multiple Choices",
+	"Moved Permanently",
+	"Found",
+	"See Other",
+	"Not modified",
+	"Use Proxy",
 	"",
-	"",
-	"",
-	"",
-	"Not modified"
+	"Temporary Redirect"
 };
 
 char *response4xx[] = {
@@ -58,22 +69,26 @@ char *response4xx[] = {
 	"Not Found",
 	"Method Not Allowed",
 	"Not Acceptable", // accept-charset mi nie pasuje?
-	"",
-	"Request Timeout",
-	"",
-	"", // 10
-	"",
-	"",
-	"",
-	"",
-	"",
-	"",
+	"Proxy Authentication Required",
+	"Request Time-out",
+	"Conflict",
+	"Gone", // 10
+	"Length Required",
+	"Precondidtion Failed",
+	"Request Entity Too Large",
+	"Request-URI Too Large",
+	"Unsupported Media Type",
+	"Requested range not satisfiable",
 	"Expectation failed"
 };
 
 char *response5xx[] = {
 	"Internal Server Error",
-	"Not Implemented"
+	"Not Implemented",
+	"Bad Gateway",
+	"Service Unavailable",
+	"Gateway Time-out",
+	"HTTP Version not supported"
 };
 
 char **response[] = {
@@ -85,6 +100,8 @@ char **response[] = {
 	response5xx
 };
 
+
+// Typy mime po rozszerzeniach
 
 char *ext_application[] = {
 	"json",  "json",
@@ -128,7 +145,7 @@ char *ext_text[] = {
 	"c",     "plain",
 	"vcf",   "vcard",
 	"vcard", "vcard"
-	// "xml",   "xml"
+	"xml",   "xml"
 };
 
 char *ext_video[] = {
@@ -160,6 +177,7 @@ char **extensions[] = {
 };
 
 #define NELEMS(x)  (sizeof(x) / sizeof(x[0]))
+
 int extensions_sizes[] = {
 	NELEMS(ext_text),
 	NELEMS(ext_application),
@@ -169,6 +187,7 @@ int extensions_sizes[] = {
 };
 
 
+// Zwraca typ mime na podstawie rozszerzenia (określone w tablicach wyżej)
 int content_type(char *mime, char *extension)
 {
 	int type, types;
@@ -209,6 +228,8 @@ int content_type(char *mime, char *extension)
 }
 
 
+// Wypisuje do socketu sformatowaną linię ładnie alokując bufor
+// Zwraca całkowitą ilość znaków w buforze
 int write_line(char *line, ...)
 {
 	// Trza ładny rozmiar dla bufora ogarnąć
@@ -247,7 +268,7 @@ int write_line(char *line, ...)
 
 	log_message(DEBUG2, "Response: %s (%i)", buffer, strlen(buffer));
 	strcat(buffer, "\r\n");
-	write(client/*.sockfd*/, buffer, strlen(buffer));
+	write(client, buffer, strlen(buffer));
 
 	int characters = strlen(buffer);
 
@@ -260,14 +281,12 @@ void basic_headers()
 {
 	write_line("Server: lhttpd");
 	write_line("Connection: close");
+	// write_line("Date: ?")
 }
 
 // Dla statusów 400+
 void connection_die(int status, char *message)
 {
-	char temp[100];
-	// response[status / 100][status % 100]
-	// response_body = message;
 	log_message(INFO, "Connection dying with: %s (%i %s)",
 		message, status, response[status / 100][status % 100]);
 
@@ -275,11 +294,12 @@ void connection_die(int status, char *message)
 		status, response[status / 100][status % 100]);
 	basic_headers();
 	write_line("");
+
 	write_line(response_body,
 		response[status / 100][status % 100], message);
-	// write_line("");
 }
 
+// Wysyła podany plik wraz z odpowiednimi nagłółkami do socketu
 void send_file(char *filepath)
 {
 	// Inaczej wyślij plik
@@ -304,18 +324,26 @@ void send_file(char *filepath)
 	}
 	++extension;
 
-	char mime[29];
-	if (content_type(mime, extension) == 0)
-		write_line("Content-Type: %s", mime);
-	// else
-	// 	write_line("Content-Type: application/octet-stream");
+	if (extension != '\0') {
+		char mime[29];
+		if (content_type(mime, extension) == 0)
+			write_line("Content-Type: %s", mime);
+		// else
+		// 	write_line("Content-Type: application/octet-stream");
+	}
 
 	basic_headers();
 	write_line("");
 
+	// To tylko HEAD
+	if (head_request) {
+		fclose(data);
+		return;
+	}
+
 	log_message(DEBUG2, "Response file: %s", filepath);
 
-	// Tak surowo
+	// Wysyłamy plik
 	int size = 512;
 	char buffer[size];
 
@@ -323,7 +351,7 @@ void send_file(char *filepath)
 
 	while (!feof(data)) {
 		count = fread(buffer, 1, size, data);
-		write(client/*.sockfd*/, buffer, count);
+		write(client, buffer, count);
 		// log_message(DEBUG2, "written: %i", count);
 	}
 	// log_message(DEBUG2, "closing file");
@@ -333,10 +361,9 @@ void send_file(char *filepath)
 	fclose(data);
 }
 
+// Podejmuje decyzje jak obsłużyć zapytanie
 void serve(char *file)
 {
-	// Usunięcie wszystkich ".." być tu winno.
-
 	char *filepath = (char *)malloc(strlen(base_path) + strlen(file) + 2);
 	strcpy(filepath, base_path);
 	strcat(filepath, "/");
@@ -356,6 +383,7 @@ void serve(char *file)
 		strcpy(index, filepath);
 		strcat(index, "/index.html");
 
+		// index.html istnieje w tym katalogu?
 		if (access(index, F_OK) != -1)
 			send_file(index);
 		else
@@ -367,19 +395,13 @@ void serve(char *file)
 	send_file(filepath);
 }
 
+// Wypisuje listę danego katalogu
 void list_dir(char *path)
 {
 	log_message(INFO, "List: %s", path);
 
-	// DIR *dir;
-	// dir = opendir(path);
-
-	// if (!dir) {
-	// 	examine_die(errno, path);
-	// 	return;
-	// }
-
 	struct dirent **dir_list;
+	int files;
 
 	files = scandir(path, &dir_list, NULL, alphasort);
 	if (files < 0) {
@@ -397,7 +419,13 @@ void list_dir(char *path)
 		return;
 	}
 
-	// TODO Index of <relatywny katalog> winno być
+	// To zmienia path na relatywny katalog względem base_path
+	char *path_bad = path;
+	// Przesunięcie o base_path
+	char *path_good = path + strlen(base_path) + 1;
+	while (*path_bad++ = *path_good++);
+	*path_bad = '\0';
+
 	fprintf(list,
 		"<!doctype html>\r\n"
 		"<html>\r\n<head>\r\n"
@@ -418,10 +446,9 @@ void list_dir(char *path)
 		path, path);
 
 	struct dirent *entry;
-	int files, i;
+	int i;
 	char *type;
 
-	// while ((entry = readdir(dir))) {
 	for (i = 0; i < files; ++i) {
 		entry = dir_list[i];
 		if (strcmp(entry->d_name, ".")) {
@@ -474,8 +501,6 @@ void list_dir(char *path)
 
 	fclose(list);
 
-	// closedir(dir);
-
 	send_file(tmp);
 
 	if (unlink(tmp))
@@ -486,14 +511,12 @@ void examine_die(int error, char *path)
 {
 	switch (error) {
 	case ENOENT:
+	case ENOTDIR:
 		connection_die(404, "There is no such thing like this");
 		break;
 	case EACCES:
 		connection_die(403, "Sorry dude, you can't see this");
 		break;
-	// case E:
-	// 	connection_die(, "");
-	// 	break;
 	default:
 		log_message(NOTICE, "error (%i) opening  '%s'",
 			error, path);

@@ -2,6 +2,8 @@
 #define _L_REQUEST_H
 
 
+extern int head_request;
+
 struct request_data {
 	char method[10];
 	char *url;
@@ -11,9 +13,8 @@ struct request_data {
 
 
 void parse_request(struct request_data *);
-int check_request();
-void head(void);
-void get(void);
+void decode_url(char *);
 
+void remove_dots(char *);
 
 #endif // _L_REQUEST_H

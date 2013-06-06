@@ -21,6 +21,8 @@ void create_server(char *address_string, char *port)
 	if (getaddrinfo(address_string, port, NULL, &addr))
 		die("Wrong ip address");
 
+	log_message(DEBUG1, "Server listening on %s:%s", address_string, port);
+
 	server = socket(addr->ai_family, addr->ai_socktype, 0/*addr->ai_protocol*/);
 	// server = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -53,13 +55,13 @@ void accept_connections()
 	char client_ip[INET_ADDRSTRLEN];
 
 	while (1) {
-		client /*.sockfd*/ = accept(server,
+		client = accept(server,
 			(struct sockaddr *)&client_addr, &client_addr_length);
 			// &client.address, &client.address_length);
 
 		// Tu by coś zrobić z blokowaniem albo czymś
 		// bo to w końcu demon. Powinien se spać alboco.
-		if (client/*.sockfd*/ < 0) {
+		if (client < 0) {
 			// log_message(NOTICE, "Client connection failed");
 			continue;
 		}
@@ -105,7 +107,7 @@ void handle_connection(/*struct client_info *client*/)
 	// Albo powiększaj bufor jeśli braknie miejsca.
 
 	while (1) {
-		read_length = read(client/*.sockfd*/,
+		read_length = read(client,
 			chunk, chunk_size);
 
 		// Jeśli wciąż nie ma końca linii...
@@ -156,7 +158,7 @@ void handle_connection(/*struct client_info *client*/)
 	// Zabawa!
 	parse_request(&request);
 
-	close(client/*.sockfd*/);
+	close(client);
 
 	// Sprzątamy
 	free(request.url);
