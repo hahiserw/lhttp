@@ -86,17 +86,6 @@ char **response[] = {
 };
 
 
-// enum types {
-// 	text,
-// 	application,
-// 	image,
-// 	video,
-// 	audio
-// 	// message,
-// 	// model,
-// 	// multipart,
-// };
-
 char *ext_application[] = {
 	"json",  "json",
 	"js",    "javascript",
@@ -178,7 +167,7 @@ int extensions_sizes[] = {
 	NELEMS(ext_video),
 	NELEMS(ext_audio)
 };
-// int extensions_sizes[] = { 12, 16, 12, 34, 16 };
+
 
 int content_type(char *mime, char *extension)
 {
@@ -382,18 +371,21 @@ void list_dir(char *path)
 {
 	log_message(INFO, "List: %s", path);
 
-	DIR *dir;
-	dir = opendir(path);
+	// DIR *dir;
+	// dir = opendir(path);
 
-	if (!dir) {
+	// if (!dir) {
+	// 	examine_die(errno, path);
+	// 	return;
+	// }
+
+	struct dirent **dir_list;
+
+	files = scandir(path, &dir_list, NULL, alphasort);
+	if (files < 0) {
 		examine_die(errno, path);
 		return;
 	}
-
-	// write_line("HTTP/1.1 200 OK");
-	// write_line("Content-Length: %i", ??);
-	// write_line("Content-Type: text/html");
-	// basic_headers();
 
 	char *tmp = "/tmp/lhttpd-temp-list.html";
 
@@ -405,82 +397,89 @@ void list_dir(char *path)
 		return;
 	}
 
-	// Index of <relatywny katalog> winno być
-
+	// TODO Index of <relatywny katalog> winno być
 	fprintf(list,
-		"<!doctype html>\n"
-		"<html>\n<head>\n"
-		"	<title>Index of %s</title>\n"
-		"	<style>\n"
-		"		body {\n"
-		"			font-family: Verdana\n"
-		"		}\n"
-		"		td {\n"
-		"			padding: 0 10px;\n"
-		"		}\n"
-		"	</style>\n"
-		"</head>\n<body>\n"
-		"	<h1>%s</h1>\n"
-		"	<br />\n"
-		"	<table>\n"
-		"		<tr><th>type</th><th>name</th></tr>\n",
+		"<!doctype html>\r\n"
+		"<html>\r\n<head>\r\n"
+		"	<title>Index of %s</title>\r\n"
+		"	<style>\r\n"
+		"		body {\r\n"
+		"			font-family: Verdana\r\n"
+		"		}\r\n"
+		"		td {\r\n"
+		"			padding: 0 10px;\r\n"
+		"		}\r\n"
+		"	</style>\r\n"
+		"</head>\r\n<body>\r\n"
+		"	<h1>%s</h1>\r\n"
+		"	<br />\r\n"
+		"	<table>\r\n"
+		"		<tr><th>type</th><th>name</th></tr>\r\n",
 		path, path);
 
 	struct dirent *entry;
+	int files, i;
 	char *type;
 
-	while ((entry = readdir(dir))) {
-		switch (entry->d_type) {
-		case DT_BLK:
-			type = "block dev";
-			break;
-		case DT_CHR:
-			type = "char dev";
-			break;
-		case DT_DIR:
-			type = "directory";
-			break;
-		case DT_FIFO:
-			type = "FIFO pipe";
-			break;
-		case DT_LNK:
-			type = "symlink";
-			break;
-		case DT_REG:
-			type = "file";
-			break;
-		case DT_SOCK:
-			type = "socket";
-			break;
-		case DT_UNKNOWN:
-			type = "unknown";
-			break;
-		}
+	// while ((entry = readdir(dir))) {
+	for (i = 0; i < files; ++i) {
+		entry = dir_list[i];
+		if (strcmp(entry->d_name, ".")) {
+			switch (entry->d_type) {
+			case DT_BLK:
+				type = "block dev";
+				break;
+			case DT_CHR:
+				type = "char dev";
+				break;
+			case DT_DIR:
+				type = "directory";
+				break;
+			case DT_FIFO:
+				type = "FIFO pipe";
+				break;
+			case DT_LNK:
+				type = "symlink";
+				break;
+			case DT_REG:
+				type = "file";
+				break;
+			case DT_SOCK:
+				type = "socket";
+				break;
+			case DT_UNKNOWN:
+				type = "unknown";
+				break;
+			}
 
-		fprintf(list, "<tr><td>%s</td><td><a href=\"%s",
-			type, entry->d_name);
-		if (entry->d_type == DT_DIR)
-			fprintf(list, "/");
-		fprintf(list, "\">%s</a></td></tr>\n", entry->d_name);
+			fprintf(list, "<tr><td>%s</td><td><a href=\"%s",
+				type, entry->d_name);
+			if (entry->d_type == DT_DIR)
+				fprintf(list, "/");
+			fprintf(list, "\">%s</a></td></tr>\r\n",
+				entry->d_name);
+		}
+		free(dir_list[i]);
 	}
+	free(dir_list);
 	// if (!entry)
 	// 	examine_die(errno, path);
 
 	fprintf(list,
-		"	</table>\n"
-		"</body>\n</html>\n"
+		"	</table>\r\n"
+		"</body>\r\n</html>\r\n"
 	);
 
 	fflush(list);
 
-	close(list);
+	fclose(list);
 
-	closedir(dir);
+	// closedir(dir);
 
 	send_file(tmp);
 
-	// if (unlink(tmp))
-	// 	log_message(INFO, "Error unlinkink temporary file");
+	if (unlink(tmp))
+		log_message(INFO, "Error unlinkink temporary file");
 }
 
 void examine_die(int error, char *path)

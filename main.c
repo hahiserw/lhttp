@@ -24,8 +24,8 @@
 
 char *program_name;
 
-const char DEFAULT_LOG_FILE[] = "/tmp/lhttpd.log";
-const char DEFAULT_CONF_FILE[] = "/etc/lhttpd.conf";
+char *log_file = "/tmp/lhttpd.log";
+char *base_path = ".";
 
 enum log_level verbosity = DEBUG2; //INFO;
 int foreground = 1; //// Tymczasowo ******************
@@ -34,7 +34,6 @@ int leon = 0;
 int server; // Deskryptor pliku dla gniazda
 /*__thread*/ int client;
 
-char *base_path = ".";
 
 
 /* Mejn **********************************************************************/
@@ -139,7 +138,7 @@ void handle_signal(int number)
 void parse_args(int argc, char *argv[])
 {
 	int option;
-	while ((option = getopt(argc, argv, "hvf3")) != -1) {
+	while ((option = getopt(argc, argv, "hvfd:l:3")) != -1) {
 		switch (option) {
 		case 'v':
 			verbosity++; // Nie podasz więcej niż int? ;p
@@ -149,6 +148,10 @@ void parse_args(int argc, char *argv[])
 			break;
 		case 'd':
 			base_path = optarg;
+			break;
+		case 'l':
+			log_file = optarg;
+			break;
 		case '3':
 			leon = 1;
 			break;
@@ -175,12 +178,12 @@ void log_message(enum log_level level, const char *message, ...)
 		return;
 
 	// Otworzenie pliku do logów
-	FILE *log_file;
+	FILE *logfd;
 	if (foreground) {
-		log_file = stderr;
+		logfd = stderr;
 	} else {
-		log_file = fopen(DEFAULT_LOG_FILE, "a");
-		if (!log_file) {
+		logfd = fopen(log_file, "a");
+		if (!logfd) {
 			// fprintf(stderr, "%s: cannot create log file\n", program_name);
 			// perror("Cannot create log");
 			fprintf(stderr, "Cannot create log\n");
@@ -190,13 +193,13 @@ void log_message(enum log_level level, const char *message, ...)
 
 	time_t now = time(NULL);
 	if (now < 0) {
-		fprintf(log_file, "Cannot get current time\n");
+		fprintf(logfd, "Cannot get current time\n");
 		exit(EXIT_FAILURE);
 	}
 
 	struct tm *local_now = localtime(&now);
 	if (!local_now) {
-		fprintf(log_file, "Cannot convert current time\n");
+		fprintf(logfd, "Cannot convert current time\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -227,19 +230,19 @@ void log_message(enum log_level level, const char *message, ...)
 	}
 
 	if (leon)
-		fprintf(log_file, "[%15s %6s] :33 < ", timestamp, level_string);
+		fprintf(logfd, "[%15s %6s] :33 < ", timestamp, level_string);
 	else
-		fprintf(log_file, "[%15s %6s] ", timestamp, level_string);
+		fprintf(logfd, "[%15s %6s] ", timestamp, level_string);
 
 	// Pozwól na przekazywanie argumentów jak do efprintefa.
 	va_list formats;
 	va_start(formats, message);
-	vfprintf(log_file, message, formats);
+	vfprintf(logfd, message, formats);
 	va_end(formats);
-	fprintf(log_file, "\n");
+	fprintf(logfd, "\n");
 
 	if (!foreground)
-		fclose(log_file);
+		fclose(logfd);
 }
 
 void die(const char *reason)
@@ -251,16 +254,6 @@ void die(const char *reason)
 
 	if (foreground)
 		perror("die");
-
-	// switch (errno) {
-	// case EACCES:
-	// 	log_message(ERROR,
-	// 		"Access denied, maybe you need root priviledges");
-	// 	break;
-	// default:
-	// 	log_message(ERROR, "The programmer was lazy and he didn't"
-	// 		" specify a message for this error code :(");
-	// }
 
 	exit(EXIT_FAILURE);
 }

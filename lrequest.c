@@ -3,26 +3,11 @@
 #include "lresponse.h"
 
 
-// struct header {
-// 	char name[100];
-// 	char value[1000];
-// }
-
-// struct request {
-// 	char mehtod[8];
-// 	char url[10000];
-// 	char magic[10]; // "HTTP"
-// 	int version_major;
-// 	int version_mainor;
-// 	struct header *headers;
-// };
-
-
 void parse_request(struct request_data *data)
 {
 	// if (version == 1.1 && no_host_header)
 	// 	return 400;
-	log_message(INFO, "LOOL %i", *(data->method));
+	// log_message(INFO, "LOOL %i", *(data->method));
 	switch (*(data->method)) {
 	case 'G': // GET
 	case 'g':

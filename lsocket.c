@@ -22,13 +22,8 @@ void create_server(char *address_string, char *port)
 		die("Wrong ip address");
 
 	server = socket(addr->ai_family, addr->ai_socktype, 0/*addr->ai_protocol*/);
-
-	// log_message(DEBUG1,
-	// 	"family (%i), socktype (%i), protocol (%i): %i, %i, %i",
-	// 	AF_INET, SOCK_STREAM, 0,
-	// 	addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-
 	// server = socket(AF_INET, SOCK_STREAM, 0);
+
 	if (server < 0)
 		die("Error opening socket");
 
@@ -280,72 +275,6 @@ int clear_buffer_to_eol(char *buffer)
 }
 
 /*
-	do {
-		read_length = read(client_data->sockfd, buffer, buffer_length);
-		if (read_length < 0) {
-			log_message(DEBUG2, "Error reading from socket");
-			break;
-		}
-		fprintf(stderr, "%s", buffer);
-		log_message(INFO, "chunk(%i)", read_length);
-	} while (read_length == buffer_length);
-
-
-	char what[20];
-	int version_major, version_minor;
-	char method[10];
-	char url[1000];
-
-	another_line_from_buffer(line, &buffer_pointer);
-
-	// Brzydko trochę ;(
-	sscanf(line, "%s %s %[^/]/%i.%i",
-		&method, &url, &what, &version_major, &version_minor);
-
-	log_message(DEBUG1, "Magic: %s/%i.%i",
-	what, version_major, version_minor);
-	log_message(DEBUG1, "Method: %s", method);
-	log_message(DEBUG1, "URL: %s", url);
-
-	if (strcmp(what, "HTTP")) {
-		log_message(INFO, "Not HTTP request");
-		close(client_data->sockfd); // Nie tak ładnie
-		return;
-	}
-
-	char name[80];
-	char value[1000];
-
-	while (1) {
-		read_length = another_line_from_buffer(line, &buffer_pointer);
-		if (read_length <= 0)
-			break;
-		sscanf(line, "%[^:]: %s", &name, &value);
-		log_message(DEBUG2, "%s: %s", name, value);
-	}
-
-
-	log_message(DEBUG1, "Read stuff from socket");
-
-
-	// Response
-
-	char *message =
-		"<!doctype html>\r\n"
-		"<html>\r\n"
-		"<head>\r\n"
-		"	<title>lhttpd presents</title>\r\n"
-		"</head>\r\n"
-		"<body>\r\n"
-		"	<h1>LOLOLOLOLO xDDD</h1>\r\n"
-		"	<span>It works!</span>\r\n"
-		"</body>\r\n"
-		"</html>\r\n";
-
-	int message_length = strlen(message);
-
-}
-
 
 NO KURWA nie działa xD
 

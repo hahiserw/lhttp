@@ -23,10 +23,10 @@ enum log_level {
 
 extern enum log_level verbosity;
 
+extern char *base_path;
+
 extern int server;
 extern /*__thread*/ int client;
-
-extern char *base_path;
 
 // extern int foreground;
 
