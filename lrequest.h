@@ -16,5 +16,7 @@ void parse_request(struct request_data *);
 void decode_url(char *);
 
 void remove_dots(char *);
+void unescape(char *);
+
 
 #endif // _L_REQUEST_H

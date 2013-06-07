@@ -139,7 +139,6 @@ char *ext_text[] = {
 	"css",   "css",
 	"csv",   "csv",
 	"html",  "html",
-	// "",      "plain", // Tak?
 	"txt",   "plain",
 	"h",     "plain",
 	"c",     "plain",
@@ -223,7 +222,6 @@ int content_type(char *mime, char *extension)
 			}
 		}
 	}
-	strcpy(mime, "text/plain");
 	return -1;
 }
 
@@ -235,7 +233,6 @@ int write_line(char *line, ...)
 	// Trza ładny rozmiar dla bufora ogarnąć
 	int buffer_size = strlen(line) + 3;
 
-	// char format;
 	char *arg;
 	char *position = line;
 
@@ -284,25 +281,42 @@ void basic_headers()
 	// write_line("Date: ?")
 }
 
+void examine_die(int error, char *path)
+{
+	switch (error) {
+	case ENOENT:
+	case ENOTDIR:
+		connection_die(404, "There is no such thing like this");
+		break;
+	case EACCES:
+		connection_die(403, "Sorry dude, you can't see this");
+		break;
+	default:
+		log_message(NOTICE, "error (%i) opening  '%s'",
+			error, path);
+		connection_die(500, "Things happen");
+		break;
+	}
+}
+
 // Dla statusów 400+
 void connection_die(int status, char *message)
 {
-	log_message(INFO, "Connection dying with: %s (%i %s)",
-		message, status, response[status / 100][status % 100]);
+	char *status_text = response[status / 100][status % 100];
 
-	write_line("HTTP/1.1 %i %s",
-		status, response[status / 100][status % 100]);
+	log_message(CONNECTION, "Connection dying with: %s (%i %s)",
+		message, status, status_text);
+
+	write_line("HTTP/1.1 %i %s", status, status_text);
 	basic_headers();
 	write_line("");
 
-	write_line(response_body,
-		response[status / 100][status % 100], message);
+	write_line(response_body, response[status / 100][status % 100]);
 }
 
 // Wysyła podany plik wraz z odpowiednimi nagłółkami do socketu
 void send_file(char *filepath)
 {
-	// Inaczej wyślij plik
 	FILE *data;
 	data = fopen(filepath, "r");
 
@@ -352,9 +366,7 @@ void send_file(char *filepath)
 	while (!feof(data)) {
 		count = fread(buffer, 1, size, data);
 		write(client, buffer, count);
-		// log_message(DEBUG2, "written: %i", count);
 	}
-	// log_message(DEBUG2, "closing file");
 
 	write_line("");
 
@@ -369,7 +381,7 @@ void serve(char *file)
 	strcat(filepath, "/");
 	strcat(filepath, file);
 
-	// Ostatni znak '/' lub stat S_IFDIR
+	// Ostatni znak '/' lub stat S_IFDIR wyświetla listę plików w katalogu
 	struct stat info;
 	if (stat(filepath, &info) != 0) {
 		log_message(NOTICE, "Stat error on file: %s", filepath);
@@ -392,14 +404,13 @@ void serve(char *file)
 		return;
 	}
 
+	// Inaczej wyślij plik
 	send_file(filepath);
 }
 
 // Wypisuje listę danego katalogu
 void list_dir(char *path)
 {
-	log_message(INFO, "List: %s", path);
-
 	struct dirent **dir_list;
 	int files;
 
@@ -409,13 +420,15 @@ void list_dir(char *path)
 		return;
 	}
 
-	char *tmp = "/tmp/lhttpd-temp-list.html";
+	char tmp[strlen(temp_dir) + 25];
+	strcpy(tmp, temp_dir);
+	strcat(tmp, "/lhttpd-temp-list.html");
 
 	FILE *list = fopen(tmp, "w");
 
 	if (!list) {
-		examine_die(errno, "/");
-		// connection_die(501, "Bloody Linux!");
+		// examine_die(errno, path);
+		connection_die(500, "Bloody Linux!");
 		return;
 	}
 
@@ -432,10 +445,11 @@ void list_dir(char *path)
 		"	<title>Index of %s</title>\r\n"
 		"	<style>\r\n"
 		"		body {\r\n"
-		"			font-family: Verdana\r\n"
+		"			font-family: Verdana;\r\n"
+		"			margin: 20px;\r\n"
 		"		}\r\n"
 		"		td {\r\n"
-		"			padding: 0 10px;\r\n"
+		"			padding: 2px 20px 0 0;\r\n"
 		"		}\r\n"
 		"	</style>\r\n"
 		"</head>\r\n<body>\r\n"
@@ -445,12 +459,20 @@ void list_dir(char *path)
 		"		<tr><th>type</th><th>name</th></tr>\r\n",
 		path, path);
 
+	log_message(CONNECTION, "List %s", path);
+
 	struct dirent *entry;
 	int i;
 	char *type;
 
 	for (i = 0; i < files; ++i) {
 		entry = dir_list[i];
+		// if (!entry) {
+		// 	examine_die(errno, path);
+		// 	fflush(list);
+		// 	fclose(list);
+		// 	return;
+		// }
 		if (strcmp(entry->d_name, ".")) {
 			switch (entry->d_type) {
 			case DT_BLK:
@@ -489,8 +511,6 @@ void list_dir(char *path)
 		free(dir_list[i]);
 	}
 	free(dir_list);
-	// if (!entry)
-	// 	examine_die(errno, path);
 
 	fprintf(list,
 		"	</table>\r\n"
@@ -505,22 +525,4 @@ void list_dir(char *path)
 
 	if (unlink(tmp))
 		log_message(INFO, "Error unlinkink temporary file");
-}
-
-void examine_die(int error, char *path)
-{
-	switch (error) {
-	case ENOENT:
-	case ENOTDIR:
-		connection_die(404, "There is no such thing like this");
-		break;
-	case EACCES:
-		connection_die(403, "Sorry dude, you can't see this");
-		break;
-	default:
-		log_message(NOTICE, "error (%i) opening  '%s'",
-			error, path);
-		connection_die(500, "Things happen");
-		break;
-	}
 }

@@ -7,28 +7,24 @@
 
 /* Zmienne globalne **********************************************************/
 
-// char *program_name;
-
-// const char DEFAULT_LOG_FILE[] = "/tmp/lhttpd.log";
-// const char DEFAULT_CONF_FILE[] = "/etc/lhttpd.conf";
-
 enum log_level {
 	ERROR,
 	WARN,
-	NOTICE, // normal, but significant, condition
-	INFO,   // informational message
+	NOTICE, // Ważne wydarzenie
+	INFO,   // Informacja
+	CONNECTION, // Związane z zapytaniami
 	DEBUG1,
 	DEBUG2
 };
 
 extern enum log_level verbosity;
 
+extern char *temp_dir;
 extern char *base_path;
 
 extern int server;
 extern /*__thread*/ int client;
 
-// extern int foreground;
 
 
 /* Deklaracje funkcji ********************************************************/

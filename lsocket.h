@@ -8,12 +8,6 @@
 #include <sys/socket.h>
 
 
-// struct client_info {
-// 	int sockfd;
-// 	struct sockaddr_in address;
-// 	socklen_t address_length;
-// };
-
 enum line_type {
 	REQUEST,
 	HEADER,
@@ -22,11 +16,10 @@ enum line_type {
 };
 
 
-// Zaczynamy zabawę
 void create_server(char *, char *);
-void accept_connectins();
+void accept_connectins(void);
 
-void handle_connection(/*struct client_info **/);
+void handle_connection(void);
 
 int another_line_from_buffer(char *, char **);
 int clear_buffer_to_eol(char *);

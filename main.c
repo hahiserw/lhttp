@@ -13,6 +13,8 @@
 #include <signal.h>
 #include <time.h> // strftime, localtime
 
+#include <string.h>
+
 #include "main.h"
 #include "lsocket.h"
 
@@ -24,18 +26,19 @@
 
 char *program_name;
 
+char *temp_dir = "/tmp";
 char *log_file = "/tmp/lhttpd.log";
 char *base_path = ".";
 
-enum log_level verbosity = DEBUG2; //INFO;
-int foreground = 1; //// Tymczasowo ******************
+enum log_level verbosity = INFO;
+int foreground = 0;
 int leon = 0;
 
 int server; // Deskryptor pliku dla gniazda
 /*__thread*/ int client;
 
 char *address = "0.0.0.0";
-char port[10] = "8080";
+char port[10] = "80";
 
 
 
@@ -66,7 +69,8 @@ int main(int argc, char *argv[])
 
 	// Utworzenie soketu
 	log_message(DEBUG1, "Opening socket");
-	// TODO WARN/NOTICE jeżeli port < 1024
+	// if (strcmp(port, "1024") < 0)
+	// 	log_message(WARN, "Using priviledged port");
 	create_server(address, port);
 
 	// Czekamy w nieskończoność na zapytania
@@ -103,7 +107,8 @@ void daemonize()
 
 	// Zmiana katalogu roboczego na bezpieczny
 	if (chdir("/") < 0) {
-		fprintf(stderr, "%s: cannot change working directory\n", program_name);
+		fprintf(stderr, "%s: cannot change working directory\n",
+			program_name);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -141,7 +146,7 @@ void handle_signal(int number)
 void parse_args(int argc, char *argv[])
 {
 	int option;
-	while ((option = getopt(argc, argv, "hvfd:l:3")) != -1) {
+	while ((option = getopt(argc, argv, "hvft:l:d:3")) != -1) {
 		switch (option) {
 		case 'v':
 			verbosity++; // Nie podasz więcej niż int? ;p
@@ -149,11 +154,14 @@ void parse_args(int argc, char *argv[])
 		case 'f':
 			foreground = 1;
 			break;
-		case 'd':
-			base_path = optarg;
+		case 't':
+			temp_dir = optarg;
 			break;
 		case 'l':
 			log_file = optarg;
+			break;
+		case 'd':
+			base_path = optarg;
 			break;
 		case '3':
 			leon = 1;
@@ -172,13 +180,25 @@ void parse_args(int argc, char *argv[])
 
 void usage()
 {
-	fprintf(stderr, "Usage: %s [-h] [-v] [-f] [-d working_directory] [ip[:port]]\n", program_name);
-	fprintf(stderr, "  -h  Display this helpful text\n");
+	fprintf(stderr, "Usage: %s [-h] [-v] [-f] [-t temp_dir] [-l log_file]"
+		" [-d working_directory] [ip[:port]]\n", program_name);
+	fprintf(stderr, "\n");
+	fprintf(stderr, "Listen for http requests at ip[:port] and serve files"
+		" from working_directory\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "  -h  Display this helpful text and exit\n");
 	fprintf(stderr, "  -v  Verbosity level, more `v', more verbose\n");
-	fprintf(stderr, "  -f  Stay in foreground (don't demonize)\n");
-	fprintf(stderr, "  -d  Root directory for http files (. default)\n");
+	fprintf(stderr, "  -f  Stay in foreground"
+		" (don't demonize, disables -l)\n");
+	fprintf(stderr, "  -t  Temporary directory for lhttpd files"
+		" (default: /tmp)\n");
+	fprintf(stderr, "  -l  File where all messages are written to"
+		" (default: /tmp/lhttp.log)\n");
+	fprintf(stderr, "  -d  Root directory for http files (default: .)\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "  If no IP is specified 0.0.0.0 is used\n");
 	fprintf(stderr, "  Default port is 80\n");
+
 	exit(EXIT_FAILURE);
 }
 
@@ -194,7 +214,6 @@ void log_message(enum log_level level, const char *message, ...)
 	} else {
 		logfd = fopen(log_file, "a");
 		if (!logfd) {
-			// fprintf(stderr, "%s: cannot create log file\n", program_name);
 			// perror("Cannot create log");
 			fprintf(stderr, "Cannot create log\n");
 			exit(EXIT_FAILURE);
@@ -214,7 +233,8 @@ void log_message(enum log_level level, const char *message, ...)
 	}
 
 	char timestamp[16];
-	if (strftime(timestamp, sizeof(timestamp), "%d %b %H:%M:%S", local_now) == 0)
+	if (strftime(timestamp, sizeof(timestamp)
+		, "%d %b %H:%M:%S", local_now) == 0)
 		sprintf(timestamp, "timestamp error");
 
 	char *level_string;
@@ -230,6 +250,9 @@ void log_message(enum log_level level, const char *message, ...)
 		break;
 	case INFO:
 		level_string =   "info";
+		break;
+	case CONNECTION:
+		level_string = "  conn";
 		break;
 	case DEBUG1:
 		level_string =  "debug"; // Bardziej się wyróżnia bez cyfry
@@ -257,10 +280,10 @@ void log_message(enum log_level level, const char *message, ...)
 
 void die(const char *reason)
 {
-	int temp = errno;
+	int errno_temp = errno;
 	log_message(ERROR, "* %s (errno: %i) Exiting", reason, errno);
 
-	errno = temp;
+	errno = errno_temp;
 
 	if (foreground)
 		perror("die");

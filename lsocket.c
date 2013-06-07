@@ -23,8 +23,7 @@ void create_server(char *address_string, char *port)
 
 	log_message(DEBUG1, "Server listening on %s:%s", address_string, port);
 
-	server = socket(addr->ai_family, addr->ai_socktype, 0/*addr->ai_protocol*/);
-	// server = socket(AF_INET, SOCK_STREAM, 0);
+	server = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
 	if (server < 0)
 		die("Error opening socket");
@@ -42,13 +41,10 @@ void create_server(char *address_string, char *port)
 	listen(server, 5);
 }
 
-// TODO Usypianie serwa kiedy połączeń brak? Coś by nie zużywało zasobów itd.
 void accept_connections()
 {
 	pthread_t client_thread;
 	// int client;
-
-	// struct client_info client_data;
 
 	struct sockaddr_in client_addr;
 	socklen_t client_addr_length = sizeof(client_addr);
@@ -59,18 +55,16 @@ void accept_connections()
 			(struct sockaddr *)&client_addr, &client_addr_length);
 			// &client.address, &client.address_length);
 
-		// Tu by coś zrobić z blokowaniem albo czymś
-		// bo to w końcu demon. Powinien se spać alboco.
 		if (client < 0) {
 			// log_message(NOTICE, "Client connection failed");
 			continue;
 		}
 
-		if (inet_ntop(client_addr.sin_family,
+		if (!inet_ntop(client_addr.sin_family,
 			&client_addr.sin_addr,
-			client_ip, INET_ADDRSTRLEN) == NULL)
+			client_ip, INET_ADDRSTRLEN))
 			strcpy(client_ip, "[ip error]");
-		log_message(INFO, "Client %s connected", client_ip);
+		log_message(CONNECTION, "Client %s connected", client_ip);
 
 		// Nowy wątek tu
 		if (pthread_create(&client_thread, NULL,
@@ -80,7 +74,7 @@ void accept_connections()
 }
 
 // Obsłuż połączenie
-void handle_connection(/*struct client_info *client*/)
+void handle_connection()
 {
 	int buffer_size = 1500;
 	int chunk_size = 150;
@@ -112,7 +106,9 @@ void handle_connection(/*struct client_info *client*/)
 
 		// Jeśli wciąż nie ma końca linii...
 		if (chunks * chunk_size > buffer_size) {
-			log_message(DEBUG1, "Reallocating buffer for %i*%i bytes", chunks, chunk_size);
+			log_message(DEBUG1,
+				"Reallocating buffer for %i*%i bytes",
+				chunks, chunk_size);
 			if (realloc(buffer,
 				sizeof(char) * chunks * chunk_size) == NULL)
 				connection_die(500, "Cannot realloc."
@@ -128,15 +124,15 @@ void handle_connection(/*struct client_info *client*/)
 
 		if (strstr(buffer, "\n")) {
 			line = (char *)malloc(strlen(buffer) + 1);
-			// char line[sizeof(buffer)];
 			// Bufor może zawierać kilka linii
 			while (1) {
-				chars = another_line_from_buffer(line, &line_start);
-				// log_message(DEBUG2, "line: %s (%i)", line, chars);
+				chars = another_line_from_buffer(
+					line, &line_start);
 				if (chars < 0)
 					break;
 				parse_line(&type, line, &request);
 			}
+
 			// Usuń wszytko przed \n
 			clear_buffer_to_eol(buffer);
 			chunks = 0;
@@ -151,9 +147,6 @@ void handle_connection(/*struct client_info *client*/)
 	log_message(DEBUG1, "End of request");
 
 	free(buffer);
-	// if (!strlen(buffer)) {
-	// 	log_message(DEBUG1, "No request data");
-	// }
 
 	// Zabawa!
 	parse_request(&request);
@@ -172,12 +165,13 @@ int another_line_from_buffer(char *line, char **pointer)
 	int chars = 0;
 
 	while (1) {
-		if (**pointer == '\0') { // || pointer - buffer == buffer_size)
+		if (**pointer == '\0') {
 			return -1;
 		} else if (**pointer == '\r' && *(*pointer+1) == '\n') {
 			*pointer += 2;
 			break;
-		} else if (**pointer == '\n') { // Bez CR też przyjmujemy rekłesty
+		// Bez CR też przyjmujemy rekłesty
+		} else if (**pointer == '\n') {
 			++*pointer;
 			break;
 		}
@@ -203,26 +197,23 @@ int parse_line(enum line_type *type, char *line, struct request_data *request)
 			&request->method, request->url, &request->magic,
 			&request->major, &request->minor);
 		// Sprawdzanie jakieś przydałoby się jeszcze tu
-		log_message(INFO, "Info: %s %s %s/%i.%i",
+		log_message(CONNECTION, "%s %s %s/%i.%i",
 			request->method, request->url, request->magic,
 			request->major, request->minor);
 		++*type;
 		break;
 	case HEADER:
-		if (strlen(line) == 0) {
+		if (strlen(line) == 0)
 			++*type;
 		// I tak w linii nie ma \r lub \n, a jakoś trza zrobić by
 		// spacje też łapał
-		} else if (sscanf(line, "%[^:]: %[^\r\n]", &temp, &temp2) == 2) {
+		else if (sscanf(line, "%[^:]: %[^\r\n]", &temp, &temp2) == 2)
 			log_message(DEBUG2, "Header: %s: %s", temp, temp2);
-		} else {
+		else
 			log_message(DEBUG1, "Wrong header?\n> %s", line);
-			// ++*type;
-		}
 		break;
 	case BODY:
 		// log_message(DEBUG1, "Request body?\n> %s", line);
-		// die("LOL");
 		// pusta linia? ++*type
 		// break;
 	case END:
@@ -250,41 +241,10 @@ int clear_buffer_to_eol(char *buffer)
 
 	// Wskazuje pierwszą literę za ostatnim \n
 	++rest_start;
-/*
-	// Alokujemy sobie miejesce na bufor pomocniczy
-	char *buffer_aux = (char *)malloc(strlen(rest_start) + 1);
 
-	// Do bufora pomocniczego wpisujemy wszystko za znakiem nowej linii
-	char *buffer_aux_pos = buffer_aux;
-	while (*buffer_aux_pos++ = *rest_start++);
-	*buffer_aux_pos = '\0';
-
-	// Tera przepisujemy to do bufora
-	buffer_aux_pos = buffer_aux;
-	data = buffer;
-	while (*data++ = *buffer_aux_pos++)
-		++characters;
-	*data = '\0';
-
-	I sprzątamy po sobie
-	free(buffer_aux);
-*/
 	while (*data++ = *rest_start++)
 		++characters;
 	*data = '\0';
 
 	return characters;
 }
-
-/*
-
-NO KURWA nie działa xD
-
-			while ((chars = another_line_from_buffer(line, &line_start)) > 0) {
-				log_message(INFO, "Another line chars: %i", chars);
-				log_message(INFO, "Parsing: %s", line);
-				// log_message(INFO, "Begining: %c%c", *line_start, *(line_start+1));
-				parse_line(&type, line, &request);
-			}
-
-//*/
