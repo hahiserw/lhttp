@@ -2,16 +2,26 @@
 <html>
 <head>
 	<title>Wyczes serwer</title>
+	<meta content="text/html; charset=UTF-8" http-equiv="content-type">
 	<style>
 		body {
 			font-family: Verdana;
+			margin: 20px;
 		}
 	</style>
+	<script src="rainbow.js"></script>
+	<script>
+		window.onload = function() {
+			rainbow = new Rainbow( document.getElementById( "rainbow" ), 20, 50, 8 );
+			rainbow.start();
+
+		}
+	</script>
 </head>
 <body>
 	<h1>Wszytko śmiga!</h1>
 	<br />
-	<h2>Test wykonany pomyślnie</h2>
+	<h2 id="rainbow">Test wykonany pomyślnie</h2>
 	<p>:D</p>
 </body>
 </html>

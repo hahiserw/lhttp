@@ -40,11 +40,8 @@ void decode_url(char *url)
 	// To jest tylko potrzebne jeśli ruch idzie przez proxy http
 
 	// Usuń wszystkie "../"
-	if (strstr(url, "../")) {
-		// Dwa razy, bo ../../../ za pierwszym razem zmieni się na ../
+	if (strstr(url, "../"))
 		remove_dots(url);
-		remove_dots(url);
-	}
 
 	// Zamień %coś na znaczki
 	if (strstr(url, "%"))
@@ -60,7 +57,7 @@ void remove_dots(char *url)
 {
 	char *curr = url + 2; // By nie wyjść za \0
 	while (*curr) {
-		if (*(curr - 2) == '.' && *(curr - 1) == '.' && *curr == '/') {
+		while (*(curr - 2) == '.' && *(curr - 1) == '.' && *curr == '/') {
 			char *curr_to = curr - 2;
 			char *curr_from = curr + 1;
 			while (*curr_to++ = *curr_from++);
