@@ -49,6 +49,11 @@ void decode_url(char *url)
 	// Zamień %coś na znaczki
 	if (strstr(url, "%"))
 		unescape(url);
+
+	// Wywal znak zapytania z zapytania
+	char *character = strstr(url, "?");
+	if (character)
+		*character = '\0';
 }
 
 void remove_dots(char *url)
@@ -66,7 +71,6 @@ void remove_dots(char *url)
 
 }
 
-// Przydałoby się zabezpieczyć przed złymi ludźmi jakoś
 void unescape(char *url)
 {
 	char *src = url;
@@ -74,12 +78,18 @@ void unescape(char *url)
 
 	char buffer[] = "0x00";
 
+	int value;
+
 	while (*dest) {
 		while (*src == '%') {
 			++src;
 			buffer[2] = *src++;
 			buffer[3] = *src++;
-			*dest++ = strtol(buffer, NULL, 16);
+			value = strtol(buffer, NULL, 16);
+			// Zabezpieczenie przed znakami kontrolnymi
+			// Zły znak po prostu usuwa z adresu
+			if (value > 31 && value != 127)
+				*dest++ = value;
 		}
 		*dest++ = *src++;
 	}

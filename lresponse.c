@@ -311,8 +311,46 @@ void connection_die(int status, char *message)
 	basic_headers();
 	write_line("");
 
-	write_line(response_body, response[status / 100][status % 100]);
+	write_line(response_body,
+		response[status / 100][status % 100], message);
 }
+
+
+// Podejmuje decyzje jak obsłużyć zapytanie
+void serve(char *file)
+{
+	char *filepath = (char *)malloc(strlen(base_path) + strlen(file) + 2);
+	strcpy(filepath, base_path);
+	// strcat(filepath, "/");
+	strcat(filepath, file);
+
+	// Ostatni znak '/' lub stat S_IFDIR wyświetla listę plików w katalogu
+	struct stat info;
+	if (stat(filepath, &info) != 0) {
+		log_message(NOTICE, "Stat error on file: %s", filepath);
+		examine_die(errno, filepath);
+		return;
+	}
+
+	if (filepath[strlen(filepath) - 1] == '/' || info.st_mode & S_IFDIR) {
+		// A teraz sprawdź czy jest tu index.html
+		char *index = (char *)malloc(strlen(filepath) + 12);
+		strcpy(index, filepath);
+		strcat(index, "/index.html");
+
+		// index.html istnieje w tym katalogu?
+		if (access(index, F_OK) != -1)
+			send_file(index);
+		else
+			list_dir(filepath);
+
+		return;
+	}
+
+	// Inaczej wyślij plik
+	send_file(filepath);
+}
+
 
 // Wysyła podany plik wraz z odpowiednimi nagłółkami do socketu
 void send_file(char *filepath)
@@ -373,41 +411,6 @@ void send_file(char *filepath)
 	fclose(data);
 }
 
-// Podejmuje decyzje jak obsłużyć zapytanie
-void serve(char *file)
-{
-	char *filepath = (char *)malloc(strlen(base_path) + strlen(file) + 2);
-	strcpy(filepath, base_path);
-	strcat(filepath, "/");
-	strcat(filepath, file);
-
-	// Ostatni znak '/' lub stat S_IFDIR wyświetla listę plików w katalogu
-	struct stat info;
-	if (stat(filepath, &info) != 0) {
-		log_message(NOTICE, "Stat error on file: %s", filepath);
-		examine_die(errno, filepath);
-		return;
-	}
-
-	if (filepath[strlen(filepath) - 1] == '/' || info.st_mode & S_IFDIR) {
-		// A teraz sprawdź czy jest tu index.html
-		char *index = (char *)malloc(strlen(filepath) + 12);
-		strcpy(index, filepath);
-		strcat(index, "/index.html");
-
-		// index.html istnieje w tym katalogu?
-		if (access(index, F_OK) != -1)
-			send_file(index);
-		else
-			list_dir(filepath);
-
-		return;
-	}
-
-	// Inaczej wyślij plik
-	send_file(filepath);
-}
-
 // Wypisuje listę danego katalogu
 void list_dir(char *path)
 {
@@ -435,7 +438,7 @@ void list_dir(char *path)
 	// To zmienia path na relatywny katalog względem base_path
 	char *path_bad = path;
 	// Przesunięcie o base_path
-	char *path_good = path + strlen(base_path) + 1;
+	char *path_good = path + strlen(base_path);
 	while (*path_bad++ = *path_good++);
 	*path_bad = '\0';
 

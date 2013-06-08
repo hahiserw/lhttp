@@ -193,7 +193,7 @@ void usage()
 	fprintf(stderr, "  -t  Temporary directory for lhttpd files"
 		" (default: /tmp)\n");
 	fprintf(stderr, "  -l  File where all messages are written to"
-		" (default: /tmp/lhttp.log)\n");
+		" (default: /tmp/lhttpd.log)\n");
 	fprintf(stderr, "  -d  Root directory for http files (default: .)\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "  If no IP is specified 0.0.0.0 is used\n");

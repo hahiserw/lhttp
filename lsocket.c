@@ -29,11 +29,11 @@ void create_server(char *address_string, char *port)
 		die("Error opening socket");
 
 	// Pozwala na ponowne użycie adresu.
-	if (verbosity >= DEBUG1) {
+	// if (verbosity >= DEBUG1) {
 		int sockoptval = 1;
 		setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &sockoptval,
 			sizeof(int));
-	}
+	// }
 
 	if (bind(server, addr->ai_addr, addr->ai_addrlen) < 0)
 		die("Error binding server to address");
