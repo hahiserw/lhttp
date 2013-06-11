@@ -276,7 +276,7 @@ int write_line(char *line, ...)
 
 void basic_headers()
 {
-	write_line("Server: lhttpd");
+	write_line("Server: lhttp");
 	write_line("Connection: close");
 	// write_line("Date: ?")
 }
